@@ -28,7 +28,7 @@ def append_to_excel(microservice, tag, rlm_ids):
             new_row["JPPROD2"] = id
 
     # Append the new row to the DataFrame
-    output_df = output_df.append(new_row, ignore_index=True)
+    output_df = pd.concat([output_df, pd.DataFrame([new_row])], ignore_index=True)
 
     # Print the updated DataFrame
     print(output_df)
