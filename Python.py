@@ -2,8 +2,14 @@ import os
 import re
 import pandas as pd
 
+# Check if the Excel file exists
+file_exists = os.path.isfile("output_data.xlsx")
+
 # Create an empty DataFrame with the desired column names
-output_df = pd.DataFrame(columns=["Microservice", "Tag", "PROD1", "JPPROD2"])
+if not file_exists:
+    output_df = pd.DataFrame(columns=["Microservice", "Tag", "PROD1", "JPPROD2"])
+else:
+    output_df = pd.read_excel("output_data.xlsx")
 
 def append_to_excel(microservice, tag, rlm_ids):
     global output_df  # Access the global DataFrame
