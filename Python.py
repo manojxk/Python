@@ -1,5 +1,5 @@
-import requests
 import pandas as pd
+import requests
 from requests.auth import HTTPBasicAuth
 
 # Function to get the Jenkins URL based on microservice name
@@ -22,34 +22,46 @@ def get_latest_jenkins_build(url, username, password):
         print(f"An error occurred: {e}")
         return None
 
-# Function to fetch and save the latest builds to Excel
-def get_latest_builds_to_excel(region, component_names, output_filename, username, password):
-    jenkins_base_url = f"https://ebjenkins02.nam.nsroot.net/job/{region}/job/169068/job/consumer_api_uat/job"
+# Function to process the Excel file and get latest builds
+def process_excel(input_filename, output_filename, jenkins_username, jenkins_password):
+    try:
+        # Read the Excel file
+        df = pd.read_excel(input_filename)
 
-    build_data = []
-    for component_name in component_names:
-        component_url = f"{jenkins_base_url}/{component_name}/api/json"
-        latest_build_info = get_latest_jenkins_build(component_url, username, password)
+        # Ensure that the "Microservice Name" column exists in the Excel file
+        if "Microservice Name" not in df.columns:
+            raise ValueError("Column 'Microservice Name' not found in the Excel file.")
 
-        if latest_build_info:
-            build_data.append({
-                "Component": component_name,
-                "Build Number": latest_build_info['number'],
-                "Build URL": latest_build_info['url']
-            })
+        # Create an empty list to store build data
+        build_data = []
 
-    if build_data:
-        df = pd.DataFrame(build_data)
-        df.to_excel(output_filename, index=False)
-        print(f"Build information saved to {output_filename}")
-    else:
-        print("No valid build information found.")
+        # Iterate through the microservice names in the Excel file
+        for microservice_name in df["Microservice Name"]:
+            jenkins_url = get_jenkins_url(microservice_name)
+            latest_build_info = get_latest_jenkins_build(jenkins_url, jenkins_username, jenkins_password)
+
+            if latest_build_info:
+                build_data.append({
+                    "Microservice Name": microservice_name,
+                    "Build Number": latest_build_info['number'],
+                    "Build URL": latest_build_info['url']
+                })
+
+        # Create a DataFrame from the build data and save it to Excel
+        if build_data:
+            build_df = pd.DataFrame(build_data)
+            build_df.to_excel(output_filename, index=False)
+            print(f"Build information saved to {output_filename}")
+        else:
+            print("No valid build information found.")
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
 
 # Example usage
+input_filename = "microservices.xlsx"  # Replace with your Excel file path
+output_filename = "latest_builds.xlsx"
 jenkins_username = "ms59214"
 jenkins_password = "Sunita@9791"
-region = "APAC"
-component_names = [get_jenkins_url("169068-aim-d-publicrefdatamgt-ob-ea")]
-output_filename = "latest_builds.xlsx"
 
-get_latest_builds_to_excel(region, component_names, output_filename, jenkins_username, jenkins_password)
+process_excel(input_filename, output_filename, jenkins_username, jenkins_password)
