@@ -62,6 +62,9 @@ def check(jenkins_tag_name, microservice):
         rlm = wait.until(EC.presence_of_element_located((By.XPATH, "//*[@id='argument_10243']")))
         append_to_excel(microservice, jenkins_tag_name, rlm.text)
         
+        # Log that data has been saved in Excel
+        logging.info(f"Data saved in Excel for {microservice}, {jenkins_tag_name}")
+
         # Close the driver gracefully
         driver.quit()
 
