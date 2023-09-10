@@ -1,18 +1,7 @@
-# Promote to Next Env
-promote_button = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "td[title='Promote to Next Environment']")))
-promote_button.click()
+# Start Request
+start_request_button = wait.until(EC.presence_of_element_located((By.XPATH, "//a[@data-method='put' and @rel='nofollow']/img[@alt='Btn-start-request']/parent::a")))
+start_request_button.click()
 
-st_automation_button = wait.until(EC.presence_of_element_located((By.ID, "st_automation")))
-st_automation_button.click()
-
-argument_link = wait.until(EC.presence_of_element_located((By.XPATH, "//td[@id='argument_10241']//a")))
-argument_link.click()
-
-dropdown = Select(wait.until(EC.presence_of_element_located((By.ID, "script_argument_10241"))))
-dropdown.select_by_index(11)
-dropdown.select_by_index(18)
-
-save_data_button = wait.until(EC.presence_of_element_located((By.ID, "save_data_retriever")))
-save_data_button.click()
-
-wait.until(EC.presence_of_element_located((By.XPATH, "//input[@type='button' and @value='Save Step']"))).click()
+# Click the green tick
+complete_button = wait.until(EC.presence_of_element_located((By.XPATH, "//input[@name='complete' and @title='Complete' and @type='image' and @alt='Complete']")))
+complete_button.click()
