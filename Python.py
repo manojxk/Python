@@ -1,23 +1,20 @@
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
+export CITI_USERNAME=your_username
+export CITI_PASSWORD=your_password
+import os
 
-try:
-    wait = WebDriverWait(driver, 600)
-    element = wait.until(EC.text_to_be_present_in_element(
-        (By.XPATH, "(//*[@class='state completeRequestStep'])[10]"), "Complete"))
-    
-    # Perform actions after "Complete" text is present
-    promote_button = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "td[title='Promote to Next Environment']")))
-    promote_button.click()
-    
-    st_automation_button = wait.until(EC.presence_of_element_located((By.ID, "st_automation")))
-    st_automation_button.click()
-    
-    rlm = wait.until(EC.presence_of_element_located((By.XPATH, "//*[@id='argument_10243']")))
-    append_to_excel(microservice, jenkins_tag_name, rlm.text)
+# Get login credentials from environment variables
+citi_username = os.environ.get("CITI_USERNAME")
+citi_password = os.environ.get("CITI_PASSWORD")
 
-except Exception as e:
-    print(f"Error: {e}")
-finally:
-    driver.quit()  # Close the driver when done
+# Define a function for login
+def login(driver):
+    try:
+        driver.get("https://releaseorchestrationdeployment.citigroup.net/brpm/")
+        driver.find_element(By.ID, "user_login").send_keys(citi_username)
+        driver.find_element(By.ID, "user_password").send_keys(citi_password)
+        driver.find_element(By.NAME, "commit").click()
+    except Exception as e:
+        logging.error(f"Error during login: {str(e)}")
+        raise
+
+# Rest of your code...
