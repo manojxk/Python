@@ -5,7 +5,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import pandas as pd
-from utils import append_to_excel, append_to_excel_for_rlm_ids
+from selenium.webdriver.support.ui import Select
 
 # Configure logging
 logging.basicConfig(filename='selenium_log.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -21,8 +21,8 @@ def login(driver, username, password):
         logging.error(f"Error during login: {str(e)}")
         raise
 
-# Define a function to perform the check
-def check(jenkins_tag_name, microservice):
+# Define a function to select a request
+def select_request(jenkins_tag_name, microservice, environment):
     try:
         # Set up Chrome driver
         chrome_options = webdriver.ChromeOptions()
@@ -56,13 +56,33 @@ def check(jenkins_tag_name, microservice):
                 link.click()
                 break
 
+        # Hold Request
+        try:
+            hold_request_button = wait.until(EC.presence_of_element_located(
+                (By.XPATH, "//a[@data-method='put' and @rel='nofollow']/img[@alt='Btn-hold-request']/parent::a")))
+            hold_request_button.click()
+            logging.info("Request hold")
+        except Exception as e:
+            logging.warning("Didn't execute hold request")
+
+        # Click "9.1 step off"
+        try:
+            step = wait.until(EC.element_to_be_clickable(
+                (By.CSS_SELECTOR, "tr.step.different_level_from_previous.incomplete_step.procedure_step td[title='9.1 step off']")))
+            logging.info(f"Clicked the 9.1 step off: {step.text}")
+            step.click()
+        except Exception as e:
+            logging.warning("Didn't click the 9.1 step off")
+
+        # Promote to Next Env
         wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "td[title='Promote to Next Environment']"))).click()
         wait.until(EC.presence_of_element_located((By.ID, "st_automation"))).click()
 
+        # Additional steps here (adjust as needed)
+
+        # Save data in Excel
         rlm = wait.until(EC.presence_of_element_located((By.XPATH, "//*[@id='argument_10243']")))
         append_to_excel(microservice, jenkins_tag_name, rlm.text)
-        
-        # Log that data has been saved in Excel
         logging.info(f"Data saved in Excel for {microservice}, {jenkins_tag_name}")
 
         # Close the driver gracefully
@@ -80,4 +100,4 @@ ms = df["Microservice Name"].tolist()
 # Iterate through the data
 for microservice, jenkins_tag_name in zip(ms, jenkins):
     logging.info(f"Processing {microservice}, {jenkins_tag_name}")
-    check(jenkins_tag_name, microservice)
+    select_request(jenkins_tag_name, microservice, "UAT1")
