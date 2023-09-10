@@ -1,126 +1,80 @@
-import requests
-import json
-import yaml
+import logging
+from selenium import webdriver
+from chromedriver_py import binary_path
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import pandas as pd
+from utils import append_to_excel, append_to_excel_for_rlm_ids
 
-# Define common headers
-headers = {
-    "Content-Type": "application/json"
-}
+# Configure logging
+logging.basicConfig(filename='selenium_log.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Define your Bitbucket username and password
-username = "Your_Bitbucket_Username"
-password = "Your_Bitbucket_Password"
-
-# Function to make an authorized HTTP GET request with username and password
-def make_authorized_http_request(url):
+# Define a function for login
+def login(driver, username, password):
     try:
-        response = requests.get(url, headers=headers, auth=(username, password))
-        response.raise_for_status()
-        return response.json()
+        driver.get("https://releaseorchestrationdeployment.citigroup.net/brpm/")
+        driver.find_element(By.ID, "user_login").send_keys(username)
+        driver.find_element(By.ID, "user_password").send_keys(password)
+        driver.find_element(By.NAME, "commit").click()
     except Exception as e:
-        print(f"HTTP Request error: {e}")
-        return None
+        logging.error(f"Error during login: {str(e)}")
+        raise
 
-# Function to authenticate with Bitbucket API
-def authenticate():
-    base_url = "https://cedt-gct-bitbucket.nam.nsroot.net/bitbucket/projects/CONSUMERAPI"
+# Define a function to perform the check
+def check(jenkins_tag_name, microservice):
     try:
-        response = make_authorized_http_request(base_url)
-        if response is not None:
-            print(response)
-    except Exception as e:
-        print(f"Authentication error: {e}")
+        # Set up Chrome driver
+        chrome_options = webdriver.ChromeOptions()
+        chrome_options.add_argument("--headless")
+        svc = webdriver.ChromeService(executable_path=binary_path)
+        driver = webdriver.Chrome(service=svc, options=chrome_options)
 
-# Function to get inbound URI mappings
-def get_inbound_uris(region, service_name):
-    print("INBOUND REQUEST")
-    bb_url = (
-        f"https://cedt-gct-bitbucket.nam.nsroot.net/bitbucket/projects/CONSUMERAPI/{region}/{service_name}-config/browse/"
-        f"{service_name}-config/UAT2/{service_name.replace('-', '')}/{service_name.replace('-', '')}.yml"
-    )
+        # Remove implicit wait and use WebDriverWait instead
+        wait = WebDriverWait(driver, 15)
 
-    uri_mapping_list = []
+        # Login
+        login(driver, "ms59214", "Sunita@9791")
 
-    try:
-        response_text = make_authorized_http_request(bb_url)
-        if response_text:
-            component_config = yaml.safe_load(response_text)
+        # Navigate to the desired page
+        driver.get("https://releaseorchestrationdeployment.citigroup.net/brpm/")
 
-            # You can parse the YAML data and populate uri_mapping_list here
+        # Wait for and interact with elements
+        wait.until(EC.presence_of_element_located((By.ID, "q"))).send_keys(jenkins_tag_name)
+        wait.until(EC.element_to_be_clickable((By.ID, "generic_search_button"))).click()
 
-    except Exception as e:
-        print(f"Error from BB :: {bb_url}")
-        # Handle the error and populate uri_mapping_list accordingly
+        # Select correct tag and env from table
+        rows = wait.until(EC.presence_of_all_elements_located((By.XPATH, "//*[@id='request_and_calendar']/table/tbody/tr")))
+        jenkins_target = f"EB_{jenkins_tag_name}"
 
-    return uri_mapping_list
+        for row in rows:
+            jenkins = row.find_element(By.XPATH, "./td[3]").text
+            env = row.find_element(By.XPATH, "./td[9]").text
+            position = jenkins.find(jenkins_tag_name)
+            if position != -1 and env == "UAT1":
+                link = row.find_element(By.XPATH, "./td[1]")
+                link.click()
+                break
 
-# Function to get outbound APIs
-def get_outbound_apis(region, service_name, domain):
-    print("OUTBOUND REQUEST")
-    bb_url = (
-        f"https://cedt-gct-bitbucket.nam.nsroot.net/bitbucket/projects/CONSUMERAPI/{region}/{service_name}/browse/"
-        f"{service_name}/src/main/resources/application.yml"
-    )
+        wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "td[title='Promote to Next Environment']"))).click()
+        wait.until(EC.presence_of_element_located((By.ID, "st_automation"))).click()
 
-    out_bound_list = []
-
-    try:
-        response_text = make_authorized_http_request(bb_url)
-        if response_text:
-            component_config = yaml.safe_load(response_text)
-
-            # You can parse the YAML data and populate out_bound_list here
+        rlm = wait.until(EC.presence_of_element_located((By.XPATH, "//*[@id='argument_10243']")))
+        append_to_excel(microservice, jenkins_tag_name, rlm.text)
+        
+        # Close the driver gracefully
+        driver.quit()
 
     except Exception as e:
-        print(f"Error from BB :: {bb_url}")
-        # Handle the error and populate out_bound_list accordingly
+        logging.error(f"Error processing {microservice}, {jenkins_tag_name}: {str(e)}")
+        pass  # Continue processing other records even if there's an error
 
-    return out_bound_list
+# Read data from Excel file
+df = pd.read_excel("/Users/ms59214/Desktop/Selenium/Manoj - CVM tags jenkins.xlsx", sheet_name="Main_For_Deploy")
+jenkins = df["Last success IUT Tag"].tolist()
+ms = df["Microservice Name"].tolist()
 
-# Function to get Jenkins configuration
-def get_jenkins_config(region, service_name):
-    print("JENKINS REQUEST")
-    bb_url = f"https://cedt-gct-bitbucket.nam.nsroot.net/bitbucket/projects/CONSUMERAPI/{region}/{service_name}/browse/"
-    jenkins_url = {}
-
-    try:
-        response_text = make_authorized_http_request(bb_url)
-        if response_text:
-            # Process the response_text and populate jenkins_url dictionary
-
-    except Exception as e:
-        print(f"ERROR IN JENKIN URL :: {service_name}")
-        # Handle the error and populate jenkins_url accordingly
-
-    return jenkins_url
-
-# Function to get active profiles
-def get_active_profiles(region, service_name):
-    bb_url = (
-        f"https://cedt-gct-bitbucket.nam.nsroot.net/bitbucket/projects/CONSUMERAPI/{region}/{service_name}/browse/"
-        f"{service_name}/src/main/resources/bootstrap.yml"
-    )
-
-    active_profiles = service_name
-    try:
-        response_text = make_authorized_http_request(bb_url)
-        if response_text:
-            component_config = yaml.safe_load(response_text)
-            active_profiles = f"{service_name},{component_config.get('spring', {}).get('profiles', {}).get('active', 'NA')}"
-    except Exception as e:
-        print(f"Error from BB :: {bb_url}")
-        # Handle the error and set active_profiles accordingly
-
-    return active_profiles
-
-# Example usage:
-if __name__ == "__main__":
-    authenticate()
-    inbound_uris = get_inbound_uris("example_region", "example_service")
-    print("Inbound URIs:", inbound_uris)
-    outbound_apis = get_outbound_apis("example_region", "example_service", "example_domain")
-    print("Outbound APIs:", outbound_apis)
-    jenkins_config = get_jenkins_config("example_region", "example_service")
-    print("Jenkins Config:", jenkins_config)
-    active_profiles = get_active_profiles("example_region", "example_service")
-    print("Active Profiles:", active_profiles)
+# Iterate through the data
+for microservice, jenkins_tag_name in zip(ms, jenkins):
+    logging.info(f"Processing {microservice}, {jenkins_tag_name}")
+    check(jenkins_tag_name, microservice)
