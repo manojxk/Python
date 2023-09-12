@@ -1,20 +1,48 @@
-export CITI_USERNAME=your_username
-export CITI_PASSWORD=your_password
-import os
+import requests
+import logging
 
-# Get login credentials from environment variables
-citi_username = os.environ.get("CITI_USERNAME")
-citi_password = os.environ.get("CITI_PASSWORD")
+# Configure logging
+logging.basicConfig(filename='pull_request_closure.log', level=logging.INFO,
+                    format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Define a function for login
-def login(driver):
-    try:
-        driver.get("https://releaseorchestrationdeployment.citigroup.net/brpm/")
-        driver.find_element(By.ID, "user_login").send_keys(citi_username)
-        driver.find_element(By.ID, "user_password").send_keys(citi_password)
-        driver.find_element(By.NAME, "commit").click()
-    except Exception as e:
-        logging.error(f"Error during login: {str(e)}")
-        raise
+                    # Replace with your Bitbucket credentials and repository information
+                    username = 'your_username'
+                    password = 'your_password'
+                    repo_slug = 'your_repository_slug'
 
-# Rest of your code...
+                    # Authenticate with Bitbucket API
+                    auth = (username, password)
+
+                    # Get a list of your open pull requests
+                    url = f'https://api.bitbucket.org/2.0/repositories/{username}/{repo_slug}/pullrequests'
+                    try:
+                        response = requests.get(url, auth=auth)
+                            response.raise_for_status()  # Raise an exception for non-200 responses
+                            except requests.exceptions.RequestException as e:
+                                logging.error(f"Failed to retrieve pull requests: {str(e)}")
+                                    exit(1)
+
+                                    if response.status_code == 200:
+                                        pull_requests = response.json()['values']
+
+                                            # Iterate through pull requests and close or reject them
+                                                for pr in pull_requests:
+                                                        pr_id = pr['id']
+                                                                close_url = f'https://api.bitbucket.org/2.0/repositories/{username}/{repo_slug}/pullrequests/{pr_id}'
+                                                                        try:
+                                                                                    response = requests.delete(close_url, auth=auth)
+                                                                                                response.raise_for_status()  # Raise an exception for non-204 responses
+                                                                                                        except requests.exceptions.RequestException as e:
+                                                                                                                    logging.error(f"Failed to close pull request #{pr_id}: {str(e)}")
+                                                                                                                                continue  # Continue to the next pull request
+
+                                                                                                                                        if response.status_code == 204:
+                                                                                                                                                    logging.info(f"Closed pull request #{pr_id}")
+                                                                                                                                                            else:
+                                                                                                                                                                        logging.error(f"Failed to close pull request #{pr_id}: {response.status_code}")
+                                                                                                                                                                        else:
+                                                                                                                                                                            logging.error(f"Failed to retrieve pull requests: {response.status_code}")
+
+                                                                                                                                                                            # Close the log file
+                                                                                                                                                                            logging.shutdown()
+                                                                                                                                                                            )
